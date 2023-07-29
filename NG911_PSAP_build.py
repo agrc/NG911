@@ -22,8 +22,9 @@ print("The script start time is {}".format(readable_start))
 ######################
 
 # Set up databases (SGID must be changed based on user's path)
-SGID = r"C:\Users\eneemann\AppData\Roaming\ESRI\ArcGISPro\Favorites\internal@SGID@internal.agrc.utah.gov.sde"
-ng911_db = r"C:\NG911\NG911_data_updates.gdb"
+SGID = r"C:\Users\gbunce\AppData\Roaming\ESRI\ArcGISPro\Favorites\internal@SGID@internal.agrc.utah.gov.sde"
+ng911_db = r"C:\Users\gbunce\Documents\projects\NG911\polygon_datasets\NG911_PSAPs\NG911_data_updates.gdb"
+## ng911_db = r"C:\NG911\NG911_data_updates.gdb" (erik's path)
 
 arcpy.env.workspace = ng911_db
 arcpy.env.overwriteOutput = True
@@ -44,8 +45,10 @@ nested_list = ['Salt Lake Valley Emergency Communications Center', 'Central Utah
 
 # Read in CSV of PSAP info into pandas dataframe, use df to build dictionaries
 print("Reading in CSV to get PSAP info ...")
-textfile_dir = r'C:\Users\eneemann\Desktop\Python Code\NG911'
-work_dir =r'C:\NG911'
+## textfile_dir = r'C:\Users\eneemann\Desktop\Python Code\NG911' (erik's path)
+textfile_dir = r"C:\Users\gbunce\Documents\projects\NG911\polygon_datasets\NG911_PSAPs"
+## work_dir =r'C:\NG911'
+work_dir = r"C:\Users\gbunce\Documents\projects\NG911\polygon_datasets\working_directory"
 
 csv = os.path.join(textfile_dir, 'PSAP_info.csv')
 psap_info = pd.read_csv(csv)
