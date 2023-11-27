@@ -4,7 +4,6 @@ Key,PSAP,Type,Counties,Munis
 ,Box Elder Communications Center/State DPS,single county,BOX ELDER,
 ,Cedar Communications Center/State DPS,mixed,IRON,NEW HARMONY
 ,Central Utah 911,multi county,"JUAB, UTAH",
-,Clearfield City Police Department,single muni,,CLEARFIELD
 ,Colorado City Dispatch Center,single muni,,HILDALE
 ,Davis County Sheriff's Office,single county,DAVIS,
 ,Emery County Sheriff's Office,single county,EMERY,
@@ -12,7 +11,7 @@ Key,PSAP,Type,Counties,Munis
 ,Grand County Sheriff's Office,single county,GRAND,
 ,Hill Emergency Communications Center,unique,,
 ,Kane County Sheriff's Office,unique,KANE,
-,Layton City Police Department,single muni,,LAYTON
+,Layton Dispatch Center,multi muni,,"LAYTON, CLEARFIELD"
 ,Logan City Communications Center,single county,CACHE,
 ,Millard County Sheriff's Office,single county,MILLARD,
 ,Price Communications Center/State DPS,multi county,"CARBON, SAN JUAN",
