@@ -1,6 +1,6 @@
 Key,PSAP,Type,Counties,Munis
 ,Beaver County Sheriff's Office,single county,BEAVER,
-,Bountiful City Police Department,multi muni,,"BOUNTIFUL, WEST BOUNTIFUL, NORTH SALT LAKE, WOODS CROSS, CENTERVILLE"
+,Bountiful City Police Department,multi muni,,"BOUNTIFUL, WEST BOUNTIFUL, NORTH SALT LAKE, WOODS CROSS, CENTERVILLE, FARMINGTON, KAYSVILLE"
 ,Box Elder Communications Center/State DPS,single county,BOX ELDER,
 ,Cedar Communications Center/State DPS,mixed,IRON,NEW HARMONY
 ,Central Utah 911,multi county,"JUAB, UTAH",
@@ -27,5 +27,5 @@ Key,PSAP,Type,Counties,Munis
 ,Uintah Basin Communications Center/State DPS,multi county,"DUCHESNE, UINTAH, DAGGETT",
 ,Salt Lake Valley Emergency Communications Center,unique,SALT LAKE,"BLUFFDALE, DRAPER"
 ,Wasatch County Sheriff's Office,single county,WASATCH,
-,Weber Area Dispatch 911,multi county,"WEBER, MORGAN",
+,Weber Area Dispatch 911,mixed,"WEBER, MORGAN","BRIGHAM CITY, PERRY, TREMONTON, GARLAND"
 ,Kane County Sheriff's Office (AZ),unique,,
