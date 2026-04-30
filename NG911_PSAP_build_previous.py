@@ -22,10 +22,8 @@ print("The script start time is {}".format(readable_start))
 ######################
 
 # Set up databases (SGID must be changed based on user's path)
-SGID = r"C:\Users\emneemann\AppData\Roaming\Esri\ArcGISPro\Favorites\internal.agrc.utah.gov (2).sde"
-# ng911_db = r"C:\Users\gbunce\Documents\projects\NG911\polygon_datasets\NG911_PSAPs\NG911_data_updates.gdb"
-# ng911_db = r"L:\agrc\data\ng911\create_ng911_polygon_data\data\NG911\polygon_datasets\NG911_PSAPs\NG911_data_updates.gdb"
-ng911_db = r"C:\Users\emneemann\Documents\NG911\polygon_datasets\NG911_PSAPs\NG911_data_updates.gdb"
+SGID = r"C:\Users\gbunce\AppData\Roaming\ESRI\ArcGISPro\Favorites\internal@SGID@internal.agrc.utah.gov.sde"
+ng911_db = r"C:\Users\gbunce\Documents\projects\NG911\polygon_datasets\NG911_PSAPs\NG911_data_updates.gdb"
 ## ng911_db = r"C:\NG911\NG911_data_updates.gdb" (erik's path)
 
 arcpy.env.workspace = ng911_db
@@ -48,13 +46,9 @@ nested_list = ['Salt Lake Valley Emergency Communications Center', 'Central Utah
 # Read in CSV of PSAP info into pandas dataframe, use df to build dictionaries
 print("Reading in CSV to get PSAP info ...")
 ## textfile_dir = r'C:\Users\eneemann\Desktop\Python Code\NG911' (erik's path)
-# textfile_dir = r"C:\Users\gbunce\Documents\projects\NG911\polygon_datasets\NG911_PSAPs"
-# textfile_dir = r"L:\agrc\data\ng911\create_ng911_polygon_data\data\NG911\polygon_datasets\NG911_PSAPs"
-textfile_dir = r"C:\Users\emneemann\Documents\NG911\polygon_datasets\NG911_PSAPs"
+textfile_dir = r"C:\Users\gbunce\Documents\projects\NG911\polygon_datasets\NG911_PSAPs"
 ## work_dir =r'C:\NG911'
-# work_dir = r"C:\Users\gbunce\Documents\projects\NG911\polygon_datasets\working_directory"
-# work_dir = r"L:\agrc\data\ng911\create_ng911_polygon_data\data\NG911\polygon_datasets\working_directory"
-work_dir = r"C:\Users\emneemann\Documents\NG911\polygon_datasets\working_directory"
+work_dir = r"C:\Users\gbunce\Documents\projects\NG911\polygon_datasets\working_directory"
 
 csv = os.path.join(textfile_dir, 'PSAP_info.csv')
 psap_info = pd.read_csv(csv)
@@ -106,7 +100,7 @@ uri_dict = psap_df.set_index('DsplayName').to_dict()['URI']
 county_dict = psap_df.set_index('DsplayName').to_dict()['County']
 
 # Set up variables for static table and feature class
-sgid_data_table = os.path.join(ng911_db, 'SGID_PSAP_data_to_join_20250204')
+sgid_data_table = os.path.join(ng911_db, 'SGID_PSAP_data_to_join_20210616')
 unique = os.path.join(ng911_db, 'NG911_PSAP_unique_UTM') # Hill AFB and NN
 
 # Set up more variables for intermediate and final feature classes
@@ -164,14 +158,6 @@ with arcpy.da.UpdateCursor(munis, fields) as update_cursor:
         update_cursor.updateRow(row)
 print(f"Total count of upper case muni name updates is: {update_count}")
 
-#: Alter field names now to prevent need to field map later
-fm_dict = {'NAME': 'DsplayName'}
-
-#: Use dictionary to rename fields
-for key in fm_dict:
-    arcpy.management.AlterField(counties, key, fm_dict[key])
-    arcpy.management.AlterField(munis, key, fm_dict[key])
-
 ###############
 #  Functions  #
 ###############
@@ -183,14 +169,25 @@ def add_single_county():
     if arcpy.Exists("county_lyr"):
         arcpy.management.Delete("county_lyr")
     arcpy.management.MakeFeatureLayer(counties, "county_lyr")
-        
+    
+    # Field Map county name into psap schema fields
+    fms = arcpy.FieldMappings()
+    
+    # NAME to DsplayName
+    fm_name = arcpy.FieldMap()
+    fm_name.addInputField("county_lyr", "NAME")
+    output = fm_name.outputField
+    output.name = "DsplayName"
+    fm_name.outputField = output
+    fms.addFieldMap(fm_name)
+    
     # Complete the append with field mapping and query
     sc_list = list(single_county_dict.values())
     print(sc_list)
-    sc_query = f"DsplayName IN ({sc_list})".replace('[', '').replace(']', '')
+    sc_query = f"NAME IN ({sc_list})".replace('[', '').replace(']', '')
     print(sc_query)
     
-    arcpy.management.Append("county_lyr", single_county_temp, "NO_TEST", expression=sc_query)
+    arcpy.management.Append("county_lyr", single_county_temp, "NO_TEST", field_mapping=fms, expression=sc_query)
     
     # Populate fields with correct information
     update_count = 0
@@ -213,16 +210,27 @@ def add_multi_county():
     if arcpy.Exists("county_lyr"):
         arcpy.management.Delete("county_lyr")
     arcpy.management.MakeFeatureLayer(counties, "county_lyr")
+       
+    # Field Map county name into psap schema fields
+    fms = arcpy.FieldMappings()
+    
+    # NAME to DsplayName
+    fm_name = arcpy.FieldMap()
+    fm_name.addInputField("county_lyr", "NAME")
+    output = fm_name.outputField
+    output.name = "DsplayName"
+    fm_name.outputField = output
+    fms.addFieldMap(fm_name)
     
     # Build query to select multi county 
     mc_list = [ item.split(',') for item in list(multi_county_dict.values())]
     mc_list = [y.strip() for x in mc_list for y in x]
     print(mc_list)
-    mc_query = f"DsplayName IN ({mc_list})".replace('[', '').replace(']', '')
+    mc_query = f"NAME IN ({mc_list})".replace('[', '').replace(']', '')
     print(mc_query)
     
     # Complete the append with field mapping and query to get all counties in group
-    arcpy.management.Append("county_lyr", multi_county_temp, "NO_TEST", expression=mc_query)
+    arcpy.management.Append("county_lyr", multi_county_temp, "NO_TEST", field_mapping=fms, expression=mc_query)
     
     # Loop through and populate fields with appropriate information and rename to multi county psaps
     update_count = 0
@@ -259,27 +267,49 @@ def add_mixed_psaps():
     arcpy.management.MakeFeatureLayer(counties, "county_lyr")
     arcpy.management.MakeFeatureLayer(munis, "muni_lyr")
     
-    # Assemble counties    
+    # Assemble counties
+    # Field Map county name into psap schema fields
+    fms = arcpy.FieldMappings()
+    
+    # NAME to DsplayName
+    fm_name = arcpy.FieldMap()
+    fm_name.addInputField("county_lyr", "NAME")
+    output = fm_name.outputField
+    output.name = "DsplayName"
+    fm_name.outputField = output
+    fms.addFieldMap(fm_name)
+    
     # Build query to select multi county 
     mixc_list = [ item.split(',') for item in list(mixed_county_dict.values())]
     mixc_list = [y.strip() for x in mixc_list for y in x]
     print(mixc_list)
-    mixc_query = f"DsplayName IN ({mixc_list})".replace('[', '').replace(']', '')
+    mixc_query = f"NAME IN ({mixc_list})".replace('[', '').replace(']', '')
     print(mixc_query)
     
     # Complete the append with field mapping and query to get all counties in group
-    arcpy.management.Append("county_lyr", mixed_temp, "NO_TEST", expression=mixc_query)
+    arcpy.management.Append("county_lyr", mixed_temp, "NO_TEST", field_mapping=fms, expression=mixc_query)
     
-    # Assemble munis and append    
+    # Assemble munis and append
+    # Field Map muni name into psap schema fields
+    fms = arcpy.FieldMappings()
+    
+    # NAME to DsplayName
+    fm_name = arcpy.FieldMap()
+    fm_name.addInputField("muni_lyr", "NAME")
+    output = fm_name.outputField
+    output.name = "DsplayName"
+    fm_name.outputField = output
+    fms.addFieldMap(fm_name)
+    
     # Build query to select multi muni 
     mixm_list = [ item.split(',') for item in list(mixed_muni_dict.values())]
     mixm_list = [y.strip() for x in mixm_list for y in x]
     print(mixm_list)
-    mixm_query = f"DsplayName IN ({mixm_list})".replace('[', '').replace(']', '')
+    mixm_query = f"NAME IN ({mixm_list})".replace('[', '').replace(']', '')
     print(mixm_query)
     
     # Complete the append with field mapping and query to get all counties in group
-    arcpy.management.Append("muni_lyr", mixed_temp, "NO_TEST", expression=mixm_query)
+    arcpy.management.Append("muni_lyr", mixed_temp, "NO_TEST", field_mapping=fms, expression=mixm_query)
      
     # Loop through and populate fields with appropriate information and rename to mixed psaps
     update_count = 0
@@ -319,15 +349,25 @@ def add_single_muni():
     if arcpy.Exists("muni_lyr"):
         arcpy.management.Delete("muni_lyr")
     arcpy.management.MakeFeatureLayer(munis, "muni_lyr")
-        
+    
+    # Field Map muni name into psap schema fields
+    fms = arcpy.FieldMappings()
+    
+    # NAME to DsplayName
+    fm_name = arcpy.FieldMap()
+    fm_name.addInputField("muni_lyr", "NAME")
+    output = fm_name.outputField
+    output.name = "DsplayName"
+    fm_name.outputField = output
+    fms.addFieldMap(fm_name)
+    
     # Complete the append with field mapping and query
     sm_list = list(single_muni_dict.values())
     print(sm_list)
-    sm_query = f"DsplayName IN ({sm_list})".replace('[', '').replace(']', '')
+    sm_query = f"NAME IN ({sm_list})".replace('[', '').replace(']', '')
     print(sm_query)
     
-    arcpy.management.Append("muni_lyr", single_muni_temp, "NO_TEST", expression=sm_query)
-
+    arcpy.management.Append("muni_lyr", single_muni_temp, "NO_TEST", field_mapping=fms, expression=sm_query)
     
     # Populate fields with correct information
     update_count = 0
@@ -357,16 +397,27 @@ def add_multi_muni():
     if arcpy.Exists("muni_lyr"):
         arcpy.management.Delete("muni_lyr")
     arcpy.management.MakeFeatureLayer(munis, "muni_lyr")
+       
+    # Field Map muni name into psap schema fields
+    fms = arcpy.FieldMappings()
+    
+    # NAME to DsplayName
+    fm_name = arcpy.FieldMap()
+    fm_name.addInputField("muni_lyr", "NAME")
+    output = fm_name.outputField
+    output.name = "DsplayName"
+    fm_name.outputField = output
+    fms.addFieldMap(fm_name)
     
     # Build query to select multi muni 
     mm_list = [ item.split(',') for item in list(multi_muni_dict.values())]
     mm_list = [y.strip() for x in mm_list for y in x]
     print(mm_list)
-    mm_query = f"DsplayName IN ({mm_list})".replace('[', '').replace(']', '')
+    mm_query = f"NAME IN ({mm_list})".replace('[', '').replace(']', '')
     print(mm_query)
     
     # Complete the append with field mapping and query to get all munis in group
-    arcpy.management.Append("muni_lyr", multi_muni_temp, "NO_TEST", expression=mm_query)
+    arcpy.management.Append("muni_lyr", multi_muni_temp, "NO_TEST", field_mapping=fms, expression=mm_query)
     
     # Loop through and populate fields with appropriate information and rename to multi muni psaps
     update_count = 0
@@ -406,16 +457,27 @@ def add_unique_psaps():
     arcpy.management.MakeFeatureLayer(counties, "county_lyr")
     arcpy.management.MakeFeatureLayer(munis, "muni_lyr")
     
-    # Assemble munis 
+    # Assemble munis
+    # Field Map muni name into psap schema fields
+    fms = arcpy.FieldMappings()
+    
+    # NAME to DsplayName
+    fm_name = arcpy.FieldMap()
+    fm_name.addInputField("muni_lyr", "NAME")
+    output = fm_name.outputField
+    output.name = "DsplayName"
+    fm_name.outputField = output
+    fms.addFieldMap(fm_name)
+    
     # Build query to select unique muni 
     unim_list = [ item.split(',') for item in list(unique_muni_dict.values())]
     unim_list = [y.strip() for x in unim_list for y in x]
     print(unim_list)
-    unim_query = f"DsplayName IN ({unim_list})".replace('[', '').replace(']', '')
+    unim_query = f"NAME IN ({unim_list})".replace('[', '').replace(']', '')
     print(unim_query)
     
     # Complete the append with field mapping and query to get all munis in group
-    arcpy.management.Append("muni_lyr", unique_muni_temp, "NO_TEST", expression=unim_query)
+    arcpy.management.Append("muni_lyr", unique_muni_temp, "NO_TEST", field_mapping=fms, expression=unim_query)
     
     # Buffer fixed edge layer
     print("Buffering fixed edges and erasing muni layer ...")
@@ -430,16 +492,27 @@ def add_unique_psaps():
     print("Appending polygon fixes to erased muni layer ...")
     arcpy.management.Append(poly_fixes, unique_muni_erased, "NO_TEST", expression=no_nulls)
       
-    # Assemble counties and cut in poly-fixed muni layer   
+    # Assemble counties and cut in poly-fixed muni layer
+    # Field Map county name into psap schema fields
+    fms = arcpy.FieldMappings()
+    
+    # NAME to DsplayName
+    fm_name = arcpy.FieldMap()
+    fm_name.addInputField("county_lyr", "NAME")
+    output = fm_name.outputField
+    output.name = "DsplayName"
+    fm_name.outputField = output
+    fms.addFieldMap(fm_name)
+    
     # Build query to select unique county 
     unic_list = [ item.split(',') for item in list(unique_county_dict.values())]
     unic_list = [y.strip() for x in unic_list for y in x]
     print(unic_list)
-    unic_query = f"DsplayName IN ({unic_list})".replace('[', '').replace(']', '')
+    unic_query = f"NAME IN ({unic_list})".replace('[', '').replace(']', '')
     print(unic_query)
     
     # Complete the append with field mapping and query to create county layer
-    arcpy.management.Append("county_lyr", unique_county_temp, "NO_TEST", expression=unic_query)
+    arcpy.management.Append("county_lyr", unique_county_temp, "NO_TEST", field_mapping=fms, expression=unic_query)
     
     # Append polygon fixes into the county layer
     # polygon fixes with NULL names are ignored from the solution
