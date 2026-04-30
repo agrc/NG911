@@ -4,6 +4,7 @@ Created on Mon Dec 28 14:48:42 2020
 @author: eneemann
 Script to build NG911 PSAP boundaries from SGID data
 
+Need to drop Weber back in at the end
 """
 
 import arcpy
@@ -22,7 +23,8 @@ print("The script start time is {}".format(readable_start))
 ######################
 
 # Set up databases (SGID must be changed based on user's path)
-SGID = r"C:\Users\emneemann\AppData\Roaming\Esri\ArcGISPro\Favorites\internal.agrc.utah.gov (2).sde"
+# SGID = r"C:\Users\emneemann\AppData\Roaming\Esri\ArcGISPro\Favorites\internal.agrc.utah.gov (2).sde"
+SGID = r"C:\Users\emneemann\AppData\Roaming\Esri\ArcGISPro\Favorites\internal@SGID@db.ugrc.utah.gov.sde"
 # ng911_db = r"C:\Users\gbunce\Documents\projects\NG911\polygon_datasets\NG911_PSAPs\NG911_data_updates.gdb"
 # ng911_db = r"L:\agrc\data\ng911\create_ng911_polygon_data\data\NG911\polygon_datasets\NG911_PSAPs\NG911_data_updates.gdb"
 ng911_db = r"C:\Users\emneemann\Documents\NG911\polygon_datasets\NG911_PSAPs\NG911_data_updates.gdb"
@@ -50,7 +52,8 @@ print("Reading in CSV to get PSAP info ...")
 ## textfile_dir = r'C:\Users\eneemann\Desktop\Python Code\NG911' (erik's path)
 # textfile_dir = r"C:\Users\gbunce\Documents\projects\NG911\polygon_datasets\NG911_PSAPs"
 # textfile_dir = r"L:\agrc\data\ng911\create_ng911_polygon_data\data\NG911\polygon_datasets\NG911_PSAPs"
-textfile_dir = r"C:\Users\emneemann\Documents\NG911\polygon_datasets\NG911_PSAPs"
+# textfile_dir = r"C:\Users\emneemann\Documents\NG911\polygon_datasets\NG911_PSAPs"
+textfile_dir = r"L:\agrc\data\ng911\create_ng911_polygon_data\scripts\NG911_polygon_data"
 ## work_dir =r'C:\NG911'
 # work_dir = r"C:\Users\gbunce\Documents\projects\NG911\polygon_datasets\working_directory"
 # work_dir = r"L:\agrc\data\ng911\create_ng911_polygon_data\data\NG911\polygon_datasets\working_directory"
@@ -117,6 +120,7 @@ mc_diss = os.path.join(ng911_db, 'NG911_psap_bound_mc_diss')
 mixed_temp = os.path.join(ng911_db, 'NG911_psap_bound_mixed_temp')
 mixed_diss = os.path.join(ng911_db, 'NG911_psap_bound_mixed_diss')
 all_mixed_temp = os.path.join(ng911_db, 'NG911_psap_bound_allmixed_temp')
+all_mixed_BE_temp = os.path.join(ng911_db, 'NG911_psap_bound_allmix_BE_temp')
 single_muni_temp = os.path.join(ng911_db, 'NG911_psap_bound_sm_temp')
 multi_muni_temp = os.path.join(ng911_db, 'NG911_psap_bound_mm_temp')
 mm_diss = os.path.join(ng911_db, 'NG911_psap_bound_mm_diss')
@@ -139,7 +143,7 @@ sgid_final_no_uris = os.path.join(ng911_db, 'NG911_psap_final_sgid_NoURIs_' + to
 psap_wgs84 = os.path.join(ng911_db, 'NG911_psap_bound_final_WGS84_' + today) # create version for NG911
 
 fc_list = [counties, munis, single_county_temp, multi_county_temp, all_county_temp,
-           mc_diss, mixed_temp, mixed_diss, all_mixed_temp, single_muni_temp, multi_muni_temp,
+           mc_diss, mixed_temp, mixed_diss, all_mixed_temp, all_mixed_BE_temp, single_muni_temp, multi_muni_temp,
            mm_diss, county_single_muni_temp, all_county_muni_temp, unique_muni_temp,
            unique_muni_erased, unique_county_temp, unique_county_muni_temp, unique_diss, all_unique_temp,
            nested_temp, nested_fixes, all_fixed_temp]
@@ -280,6 +284,12 @@ def add_mixed_psaps():
     
     # Complete the append with field mapping and query to get all counties in group
     arcpy.management.Append("muni_lyr", mixed_temp, "NO_TEST", expression=mixm_query)
+
+    # Append polygon fixes into erased muni layer
+    # polygon fixes with NULL names are ignored from the solution
+    no_nulls_mixed = "DsplayName IS NOT NULL AND Type = 'mixed'"
+    print("Appending polygon fixes to mixed layer ...")
+    arcpy.management.Append(poly_fixes, mixed_temp, "NO_TEST", expression=no_nulls_mixed)
      
     # Loop through and populate fields with appropriate information and rename to mixed psaps
     update_count = 0
@@ -310,6 +320,19 @@ def add_mixed_psaps():
     arcpy.analysis.Erase(all_county_temp, mixed_diss, all_mixed_temp)
     # Append
     arcpy.management.Append(mixed_diss, all_mixed_temp, "NO_TEST")    
+
+
+def update_box_elder():
+    # Drop in the "unique" I-15 buffer into Box Elder PSAP via erase/append
+    print("Adding Box Elder I-15 buffer working psaps layer ...")
+    # Make feature layer
+    box_elder_query = "DsplayName = 'Box Elder Communications Center/State DPS'"
+    arcpy.management.MakeFeatureLayer(unique, "BE_buffer_lyr", box_elder_query)
+    # Erase
+    arcpy.analysis.Erase(all_mixed_temp, "BE_buffer_lyr", all_mixed_BE_temp)
+    # Append
+    arcpy.management.Append("BE_buffer_lyr", all_mixed_BE_temp, "NO_TEST")  
+
 
 
 def add_single_muni():
@@ -345,7 +368,7 @@ def add_single_muni():
     # Drop in single muni psaps via erase/append
     print("Adding single muni PSAPs into working psaps layer ...")
     # Erase
-    arcpy.analysis.Erase(all_mixed_temp, single_muni_temp, county_single_muni_temp)
+    arcpy.analysis.Erase(all_mixed_BE_temp, single_muni_temp, county_single_muni_temp)
     # Append
     arcpy.management.Append(single_muni_temp, county_single_muni_temp, "NO_TEST")
 
@@ -447,7 +470,6 @@ def add_unique_psaps():
     print("Appending polygon fixes to erased county layer ...")
     arcpy.management.Append(poly_fixes, unique_muni_erased, "NO_TEST", expression=no_nulls)
     
-
     # Erase county layer with poly-fixed muni layer
     arcpy.analysis.Erase(unique_county_temp, unique_muni_erased, unique_county_muni_temp)
     
@@ -611,6 +633,7 @@ function_time = time.time()
 add_single_county()
 add_multi_county()
 add_mixed_psaps()
+update_box_elder()
 add_single_muni()
 add_multi_muni()
 add_unique_psaps()

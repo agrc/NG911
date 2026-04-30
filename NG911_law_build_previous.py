@@ -23,8 +23,7 @@ print("The script start time is {}".format(readable_start))
 
 # Set up databases (SGID must be changed based on user's path)
 # SGID = r"C:\Users\gbunce\AppData\Roaming\ESRI\ArcGISPro\Favorites\internal@SGID@internal.agrc.utah.gov.sde"
-# SGID = r"C:\Users\emneemann\AppData\Roaming\Esri\ArcGISPro\Favorites\internal.agrc.utah.gov (2).sde" # From RedRocket
-SGID = r"C:\Users\emneemann\AppData\Roaming\Esri\ArcGISPro\Favorites\internal@SGID@db.ugrc.utah.gov.sde" # From Workhorse to new db server
+SGID = r"C:\Users\emneemann\AppData\Roaming\Esri\ArcGISPro\Favorites\internal.agrc.utah.gov (2).sde"
 # ng911_db = r"C:\Users\gbunce\Documents\projects\NG911\polygon_datasets\NG911_PSAPs\NG911_data_updates.gdb"
 ng911_db = r"C:\Users\emneemann\Documents\NG911\polygon_datasets\NG911_PSAPs\NG911_data_updates.gdb"
 
@@ -35,17 +34,11 @@ arcpy.env.qualifiedFieldNames = False
 
 today = time.strftime("%Y%m%d")
 
-SGID_counties = os.path.join(SGID, 'SGID.BOUNDARIES.Counties')
-counties = os.path.join(ng911_db, f'SGID_counties_{today}')
-SGID_munis = os.path.join(SGID, 'SGID.BOUNDARIES.Municipalities')
-munis = os.path.join(ng911_db, f'SGID_munis_{today}')
+counties = os.path.join(SGID, 'SGID.BOUNDARIES.Counties')
+munis = os.path.join(SGID, 'SGID.BOUNDARIES.Municipalities')
 unique = os.path.join(ng911_db, 'NG911_Law_unique_UTM')
 law_schema = os.path.join(ng911_db, 'NG911_Law_schema_SGID')
 law_working = os.path.join(ng911_db, 'NG911_Law_bound_working_' + today)
-
-# Copy SGID counties and munis to local fc
-arcpy.management.CopyFeatures(SGID_counties, counties)
-arcpy.management.CopyFeatures(SGID_munis, munis)
 
 # Read in text file of municipalities with PDs
 print("Reading in text file to get Municipalities with Police Departments ...")
@@ -117,16 +110,6 @@ SOs_holes = os.path.join(ng911_db, 'NG911_law_bound_SOs_holes')
 law_final = os.path.join(ng911_db, 'NG911_law_bound_final_' + today)  #this layer goes in SGID
 law_wgs84 = os.path.join(ng911_db, 'NG911_law_bound_final_WGS84_' + today)
 
-
-#: Alter field names now to prevent need to field map later
-fm_dict = {'NAME': 'DsplayName'}
-
-#: Use dictionary to rename fields
-for key in fm_dict:
-    arcpy.management.AlterField(counties, key, fm_dict[key])
-    arcpy.management.AlterField(munis, key, fm_dict[key])
-
-
 ###############
 #  Functions  #
 ###############
@@ -140,8 +123,19 @@ def add_sheriff():
     arcpy.management.MakeFeatureLayer(SOs_temp, "working_lyr")
     arcpy.management.MakeFeatureLayer(counties, "county_lyr")
     
-    # Complete the append without field mapping
-    arcpy.management.Append("county_lyr", "working_lyr", "NO_TEST")
+    # Field Map county name into law schema fields
+    fms = arcpy.FieldMappings()
+    
+    # NAME to DsplayName
+    fm_agency = arcpy.FieldMap()
+    fm_agency.addInputField("county_lyr", "NAME")
+    output = fm_agency.outputField
+    output.name = "DsplayName"
+    fm_agency.outputField = output
+    fms.addFieldMap(fm_agency)
+    
+    # Complete the append with field mapping
+    arcpy.management.Append("county_lyr", "working_lyr", "NO_TEST", field_mapping=fms)
     
     # Populate fields with information
     update_count = 0
@@ -168,13 +162,24 @@ def add_muni_pds():
     if arcpy.Exists("working_lyr_2"):
         arcpy.management.Delete("working_lyr_2")
     arcpy.management.MakeFeatureLayer(PDs_temp, "working_lyr_2")
-    temp_list = ",".join(f"'{item.title()}'" for item in muni_pd)
-    query = f"DsplayName IN ({temp_list})"
+    temp_list = ",".join(f"'{item.upper()}'" for item in muni_pd)
+    query = f"NAME IN ({temp_list})"
     print(query)
     arcpy.management.MakeFeatureLayer(munis, "muni_lyr", query)
     
-    # Complete the append without field mapping
-    arcpy.management.Append("muni_lyr", "working_lyr_2", "NO_TEST")
+    # Field Map county name into law schema fields
+    fms = arcpy.FieldMappings()
+    
+    # NAME to DsplayName
+    fm_agency = arcpy.FieldMap()
+    fm_agency.addInputField("muni_lyr", "NAME")
+    output = fm_agency.outputField
+    output.name = "DsplayName"
+    fm_agency.outputField = output
+    fms.addFieldMap(fm_agency)
+    
+    # Complete the append with field mapping
+    arcpy.management.Append("muni_lyr", "working_lyr_2", "NO_TEST", field_mapping=fms)
     # now munis are in law schema with only DsplayName populated (sk_lyr_2, PDs_temp)
     
     # Populate fields with information
@@ -216,13 +221,24 @@ def add_combos():
     # Build query to select combo PDs
     combo_list = [ item.title() for sublist in (combos[key] for key in combos) for item in sublist ]
     print(combo_list)
-    query_test = f"DsplayName IN ({combo_list})".replace('[', '').replace(']', '')
+    query_test = f"NAME IN ({combo_list})".replace('[', '').replace(']', '')
     print(query_test)
 
     arcpy.management.MakeFeatureLayer(munis, "muni_lyr_3", query_test)
     
-    # Complete the append without field mapping
-    arcpy.management.Append("muni_lyr_3", "working_lyr_3", "NO_TEST")
+    # Field Map county name into law schema fields
+    fms = arcpy.FieldMappings()
+    
+    # NAME to DsplayName
+    fm_agency = arcpy.FieldMap()
+    fm_agency.addInputField("muni_lyr_3", "NAME")
+    output = fm_agency.outputField
+    output.name = "DsplayName"
+    fm_agency.outputField = output
+    fms.addFieldMap(fm_agency)
+    
+    # Complete the append with field mapping
+    arcpy.management.Append("muni_lyr_3", "working_lyr_3", "NO_TEST", field_mapping=fms)
     
     # Loop through and populate fields with appropriate information and rename to combo jurisdictions (All)
     #            0           1           2          3
